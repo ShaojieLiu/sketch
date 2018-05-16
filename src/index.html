@@ -1,0 +1,126 @@
+<html>
+    <textarea id='txt'></textarea>
+    <br>
+    <button id='ok'>生成字符画</button>
+    <br>
+    <textarea id='output'></textarea>
+    <br>
+    <img id='input' src="cat.png" alt="">
+    <!-- <img id='input' src="dolphin.png" alt=""> -->
+    <!-- <img id='input' src="bird.jpg" alt=""> -->
+<script>
+const el = sel => document.querySelector(sel)
+const html = el('html')
+const img = el('#input')
+const txt = el('#txt')
+
+class Sketch {
+    constructor(img) {
+        this._initCanvas(img)
+        this.strIndex = 0
+    }
+
+    _initCanvas(img) {
+        const canvas = document.createElement('canvas')
+        const ctx = canvas.getContext('2d')
+        this.canvas = canvas
+        this.ctx = ctx
+        const w = img.width
+        const h = img.height
+        canvas.width = w
+        canvas.height = h
+        html.appendChild(canvas)
+        ctx.drawImage(img, 0, 0)
+    }
+
+    _getBinary(arr) {
+        const count = arr.length / 4
+        const thor = 127
+        let sum = 0
+        for (let i = 0; i < count; i++) {
+            const r = arr[i]
+            const g = arr[i + 1]
+            const b = arr[i + 2]
+            const a = arr[i + 3]
+            if (
+                a > thor && 
+                r < thor &&
+                g < thor &&
+                b < thor 
+            ) {
+                sum++
+            }
+        }
+        // console.log('binary', sum, count / 2)
+        return sum > count / 8
+    }
+
+    _getMesh(unit) {
+        const { canvas, ctx } = this
+        const res = []
+        const w = canvas.width / unit
+        const h = canvas.height / unit
+        for (let y = 0; y < h; y++) {
+            const row = []
+            for (let x = 0; x < w; x++) {
+                const block = ctx.getImageData(x * unit, y * unit, unit, unit)
+                const value = this._getBinary(block.data)
+                row.push(value)
+            }
+            res.push(row)
+        }
+        return { res, w, h }
+    }
+
+    _getNextCreator(str) {
+        const len = str.length
+        let strIndex = 0
+        return () => {
+            if (strIndex >= len) {strIndex = 0}
+            return str[strIndex++]
+        }
+    }
+
+    getString(str) {
+        const mesh = this._getMesh(10)
+        let res = ''
+        const getNext = this._getNextCreator(str)
+        mesh.res.forEach(row => {
+            row.forEach(p => {
+                if (p) { res += getNext() + getNext() }
+                else { res += '  ' }
+            })
+            res += '\n'
+        })
+        // console.log(res)
+        return { str: res, w: mesh.w, h: mesh.h } 
+    }
+} 
+
+const initOut = (strObj) => {
+    const out = el('#output')
+    // rows="3" cols="20"
+    out.cols = strObj.w * 2
+    out.rows = strObj.h + 10
+    out.style.fontFamily = 'Monaco'
+    out.style.lineHeight = '100%'
+    out.value = strObj.str
+}
+
+const main = () => {
+
+    const sk = new Sketch(img)
+    el('#ok').addEventListener('click', () => {
+        const str = txt.value.replace(/[\s, '\n', '\t]+/g, ' ')
+        console.log('origin\n', txt.value)
+        console.log('processed\n', str)
+        const strObj = sk.getString(str)
+        initOut(strObj)
+    })
+    
+}
+
+img.onload = main
+
+</script>
+</html>
